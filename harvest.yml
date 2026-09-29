@@ -1,0 +1,24 @@
+name: Harvest approved sources
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 */6 * * *"
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check discovery configuration
+        run: python -m py_compile source_discovery.py source_discovery_upload.py
+      - name: Show next integration step
+        run: |
+          echo "Source discovery is active."
+          echo "Approved source harvesting should be attached here as connector modules are enabled."
+          echo "No arbitrary web scraping is performed by this workflow."

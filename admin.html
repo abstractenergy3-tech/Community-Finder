@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Community Finder Admin</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f4f7f5;color:#17211e}
+header{padding:22px;background:#1f6f5b;color:#fff}
+main{max-width:1000px;margin:auto;padding:18px}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}
+button,select,input,textarea{font:inherit;padding:10px;border:1px solid #ccd5d1;border-radius:9px}
+button{cursor:pointer;background:#1f6f5b;color:white;border:0}
+.panel{background:#fff;padding:18px;border-radius:14px;margin-bottom:14px}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;border-top:1px solid #e5e9e7;padding:14px 0}
+.badge{padding:4px 8px;border-radius:99px;background:#e5f2ed;color:#1f6f5b;font-size:12px}
+.small{color:#5c6965;font-size:13px}
+@media(max-width:650px){.row{display:block}.row button{margin-top:8px}}
+</style>
+</head>
+<body>
+<header><strong>Community Finder — Review Console</strong><div class="small" style="color:#dcebe6">Prototype administration interface</div></header>
+<main>
+<div class="panel">
+  <nav>
+    <button onclick="show('submissions')">Submissions</button>
+    <button onclick="show('claims')">Claims</button>
+    <button onclick="show('stale')">Stale listings</button>
+    <button onclick="show('sources')">Sources</button>
+  </nav>
+  <div id="content"></div>
+</div>
+<div class="panel">
+  <strong>Production security note</strong>
+  <p class="small">This prototype has no authentication. A production admin console must require authenticated, role-based access and record every administrative action.</p>
+</div>
+</main>
+<script>
+const data={
+ submissions:[
+  {title:"Neighborhood tutoring program",org:"Example Community Center",category:"Education",status:"pending"},
+  {title:"Weekend family activity",org:"Example Recreation Group",category:"Family",status:"pending"}
+ ],
+ claims:[
+  {title:"Community Food Pantry",org:"Example Food Network",status:"pending",proof:"organization website"},
+  {title:"Neighborhood Learning Hub",org:"Example Learning Center",status:"pending",proof:"business email"}
+ ],
+ stale:[
+  {title:"Example Housing Resource",source:"Public dataset",age:"45 days"},
+  {title:"Example Community Event",source:"Organization feed",age:"38 days"}
+ ],
+ sources:[
+  {name:"Seattle Emergency Food and Meals",status:"enabled",refresh:"24h"},
+  {name:"Seattle Parks Events",status:"manual review",refresh:"24h"},
+  {name:"Seattle Public Library Events",status:"manual review",refresh:"24h"}
+ ]
+};
+function show(type){
+ const c=document.getElementById("content");
+ const items=data[type];
+ c.innerHTML=`<h2>${type[0].toUpperCase()+type.slice(1)}</h2>`+
+ items.map((x,i)=>`<div class="row">
+ <div><strong>${x.title||x.name}</strong><div class="small">${x.org||x.source||x.status||""} ${x.category?"· "+x.category:""} ${x.age?"· "+x.age:""} ${x.refresh?"· refresh "+x.refresh:""}</div></div>
+ <div><span class="badge">${x.status}</span>
+ ${["submissions","claims"].includes(type)?` <button onclick="approve('${type}',${i})">Approve</button> <button onclick="reject('${type}',${i})">Reject</button>`:""}
+ </div></div>`).join("");
+}
+function approve(type,i){data[type][i].status="approved";show(type)}
+function reject(type,i){data[type][i].status="rejected";show(type)}
+show("submissions");
+</script>
+</body>
+</html>

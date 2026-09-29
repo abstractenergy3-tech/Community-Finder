@@ -1,0 +1,15 @@
+{
+  "cities": [
+    {
+      "city_key": "seattle-wa",
+      "publisher": "City of Seattle / local community sources",
+      "queries": [
+        "Seattle WA community resources food assistance API open data",
+        "Seattle WA community events API RSS iCalendar nonprofit directory",
+        "Seattle WA housing assistance open data API",
+        "Seattle WA youth programs open data API",
+        "Seattle WA senior services open data API"
+      ]
+    }
+  ]
+}

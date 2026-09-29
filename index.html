@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f6f5b">
+  <title>Community Finder</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="brand">Community Finder</div>
+    <p>Find local resources, programs, and activities.</p>
+  </header>
+
+  <main>
+    <section class="search-panel">
+      <div class="search-row">
+        <input id="search" type="search" placeholder="Search resources, programs, activities…">
+        <button id="locationBtn">Use my location</button>
+      </div>
+      <div class="filters">
+        <select id="category">
+          <option value="">All categories</option>
+          <option>Food</option>
+          <option>Housing</option>
+          <option>Education</option>
+          <option>Employment</option>
+          <option>Community</option>
+          <option>Recreation</option>
+          <option>Family</option>
+          <option>Transportation</option>
+        </select>
+        <select id="cost">
+          <option value="">Any cost</option>
+          <option value="free">Free</option>
+          <option value="low">Low cost</option>
+        </select>
+        <select id="when">
+          <option value="">Any time</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+        </select>
+      </div>
+    </section>
+
+    <section id="status" class="status">Showing sample listings. Connect a live data source to make this production-ready.</section>
+    <section id="results" class="results"></section>
+  </main>
+
+  <footer>
+    <small>Prototype — verify listing details before relying on them.</small>
+  </footer>
+
+<script>
+let resources = [
+  {name:"Community Food Pantry", category:"Food", cost:"free", when:"today",
+   description:"Example listing for a neighborhood food distribution program.",
+   address:"Local community center", phone:"(000) 000-0000", distance:0.8},
+  {name:"Neighborhood Learning Hub", category:"Education", cost:"free", when:"week",
+   description:"Example listing for tutoring, workshops, and adult learning.",
+   address:"Local library", phone:"(000) 000-0000", distance:1.4},
+  {name:"Community Job Workshop", category:"Employment", cost:"free", when:"week",
+   description:"Example listing for resume help, job search support, and workshops.",
+   address:"Community services building", phone:"(000) 000-0000", distance:2.1},
+  {name:"Family Activity Club", category:"Family", cost:"low", when:"week",
+   description:"Example listing for family-friendly activities and meetups.",
+   address:"Neighborhood recreation center", phone:"(000) 000-0000", distance:2.7},
+  {name:"Neighborhood Walking Group", category:"Recreation", cost:"free", when:"today",
+   description:"Example listing for a community walking and social group.",
+   address:"Local park", phone:"(000) 000-0000", distance:3.2}
+];
+window.SAMPLE_RESOURCES = resources;
+
+
+const $ = id => document.getElementById(id);
+
+
+async function loadLiveResources() {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/resources?lat=47.6062&lng=-122.3321&radius=25");
+    if (!response.ok) throw new Error("API unavailable");
+    const data = await response.json();
+    if (Array.isArray(data.results) && data.results.length) {
+      resources = data.results.map(r => ({
+        name: r.title,
+        category: r.category,
+        cost: r.cost_type || "unknown",
+        when: "",
+        description: r.description || "Community resource",
+        address: r.address || "Address not provided",
+        phone: r.phone || "Contact source",
+        distance: Number(r.distance_miles || 0)
+      }));
+      $("status").textContent = `Showing ${resources.length} live source-derived listings.`;
+      render();
+    }
+  } catch (_) {
+    // Keep the bundled sample data so the UI still works offline.
+  }
+}
+
+function render() {
+  const q = $("search").value.toLowerCase().trim();
+  const category = $("category").value;
+  const cost = $("cost").value;
+  const when = $("when").value;
+
+  const filtered = resources.filter(r =>
+    (!q || `${r.name} ${r.description} ${r.category}`.toLowerCase().includes(q)) &&
+    (!category || r.category === category) &&
+    (!cost || r.cost === cost) &&
+    (!when || r.when === when)
+  );
+
+  $("results").innerHTML = filtered.length ? filtered.map(r => `
+    <article class="card">
+      <div class="tag">${r.category}</div>
+      <h2>${r.name}</h2>
+      <p>${r.description}</p>
+      <div class="meta">📍 ${r.address} · ${r.distance.toFixed(1)} mi away</div>
+      <div class="meta">☎ ${r.phone} · ${r.cost === "free" ? "Free" : "Low cost"}</div>
+      <button class="details" onclick="alert('In production, this opens the verified listing with hours, eligibility, directions, contact links, and reporting tools.')">View details</button>
+    </article>
+  `).join("") : `<div class="empty">No matching listings. Try a broader search or category.</div>`;
+}
+
+["search","category","cost","when"].forEach(id => $(id).addEventListener("input", render));
+
+loadLiveResources();
+
+$("locationBtn").addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    $("status").textContent = "Location is not supported by this browser.";
+    return;
+  }
+  $("status").textContent = "Requesting your location…";
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      $("status").textContent =
+        `Location found (${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}). ` +
+        "A production app would now query nearby verified listings.";
+    },
+    () => $("status").textContent = "Location permission was not granted. You can search by name or ZIP code instead."
+  );
+});
+render();
+</script>
+<script src="app.js"></script>
+<script src="supabase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
