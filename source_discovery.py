@@ -1,4 +1,3 @@
-```python
 #!/usr/bin/env python3
 """Conservative source verification for Community Finder.
 
@@ -643,4 +642,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-```
+
