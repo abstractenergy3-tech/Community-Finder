@@ -1,0 +1,14 @@
+{
+  "sources": [
+    {
+      "name": "City of Seattle - Emergency Food and Meals",
+      "url": "https://cos-data.seattle.gov/api/v3/views/kkzf-ntnu/query.json?accessType=DOWNLOAD",
+      "landing_url": "https://data.seattle.gov/d/kkzf-ntnu",
+      "reuse_evidence_url": "https://data.seattle.gov/stories/s/Terms-of-Use/6ukr-wvup/",
+      "publisher": "City of Seattle Human Services Department",
+      "queries": [
+        "Seattle WA community resources food assistance API open data"
+      ]
+    }
+  ]
+}

@@ -28,6 +28,7 @@ for c in payload.get("candidates", []):
             "http_status": c.get("http_status"), "content_type": c.get("content_type"),
             "robots_allowed": c.get("robots_allowed"), "machine_readable": c.get("machine_readable"),
             "explicit_reuse_signal": c.get("explicit_reuse_signal"), "terms_signal": c.get("terms_signal"),
+            "reuse_evidence_url": c.get("reuse_evidence_url"),
             "government_signal": c.get("government_signal"), "personal_data_risk": c.get("personal_data_risk")
         },
         "reasons": c.get("reasons", []), "last_checked_at": c.get("checked_at")
@@ -38,7 +39,7 @@ if not rows:
 
 url = f"{SUPABASE_URL}/rest/v1/source_candidates?on_conflict=url"
 req = urllib.request.Request(url, data=json.dumps(rows).encode(), method="POST", headers={
-    "apikey": SERVICE_KEY, "Authorization": f"Bearer {SERVICE_KEY}",
+    "apikey": SERVICE_KEY,
     "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"
 })
 try:
@@ -64,6 +65,7 @@ for c in payload.get("candidates", []):
             "http_status": c.get("http_status"), "content_type": c.get("content_type"),
             "robots_allowed": c.get("robots_allowed"), "machine_readable": c.get("machine_readable"),
             "explicit_reuse_signal": c.get("explicit_reuse_signal"), "terms_signal": c.get("terms_signal"),
+            "reuse_evidence_url": c.get("reuse_evidence_url"),
             "government_signal": c.get("government_signal"), "personal_data_risk": c.get("personal_data_risk")
         },
         "discovered_at": c.get("checked_at"), "last_verified_at": c.get("checked_at"),

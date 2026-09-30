@@ -1,0 +1,30 @@
+name: Discover and verify sources
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 7 * * 1"
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify known public sources
+        run: python source_discovery.py
+      - name: Upload discovery results
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python source_discovery_upload.py
+      - name: Save discovery report
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-discovery-report
+          path: discovery_candidates.json
+          retention-days: 14
