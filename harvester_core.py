@@ -234,7 +234,7 @@ def normalize_record(
             "A source record is missing a usable title."
         )
         
-  source_record_id = first_value(row, *source_record_id_fields)
+     source_record_id = first_value(row, *source_record_id_fields)
 
     if not source_record_id:
         raise HarvestError(
