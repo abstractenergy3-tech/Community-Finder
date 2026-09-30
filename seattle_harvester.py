@@ -231,9 +231,23 @@ def normalize_row(
         part for part in (address, city, state, zip_code) if part
     ) or None
     
-    # This first adapter is intentionally Seattle-only.
-    # Do not assign surrounding-city records to Seattle.
-    if city and city.strip().lower() != "seattle":
+        # This first adapter is intentionally Seattle-only.
+    # Some source rows do not populate the city field reliably,
+    # so also verify that the address explicitly identifies Seattle.
+    city_is_seattle = bool(
+        city and city.strip().lower() == "seattle"
+    )
+
+    address_is_seattle = bool(
+        address
+        and re.search(
+            r"\bSeattle\s*,?\s*WA\b",
+            address,
+            flags=re.IGNORECASE,
+        )
+    )
+
+    if not (city_is_seattle or address_is_seattle):
         return None
         
     phone = clean(
