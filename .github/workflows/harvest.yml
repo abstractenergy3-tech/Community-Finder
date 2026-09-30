@@ -10,15 +10,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      HARVEST_USER_AGENT: CommunityFinderHarvester/1.0
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Check discovery configuration
-        run: python -m py_compile source_discovery.py source_discovery_upload.py
-      - name: Show next integration step
+
+      - name: Validate Python files
         run: |
-          echo "Source discovery is active."
-          echo "Approved source harvesting should be attached here as connector modules are enabled."
-          echo "No arbitrary web scraping is performed by this workflow."
+          python -m py_compile \
+            source_discovery.py \
+            source_discovery_upload.py \
+            seattle_harvester.py
+
+      - name: Harvest approved Seattle source
+        run: python seattle_harvester.py
