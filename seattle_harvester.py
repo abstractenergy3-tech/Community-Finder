@@ -370,6 +370,18 @@ def write_resources(
 
     seen_record_ids: set[str] = set()
 
+    # If any existing Seattle rows still lack a stable ID,
+    # we are performing the one-time migration.
+    existing_rows = list(existing_by_hash.values())
+    migration_mode = any(
+        not row.get("source_record_id")
+        for row in existing_rows
+    )
+
+    matches: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
+
+    # ---------- PREFLIGHT ----------
+    # Determine every match BEFORE making any database changes.
     for row in rows:
         source_record_id = row.get("source_record_id")
 
@@ -401,6 +413,19 @@ def write_resources(
                     f"{source_record_id}"
                 )
 
+        # During migration, NEVER create a new row just because
+        # a hash match could not be found.
+        if migration_mode and old is None:
+            raise RuntimeError(
+                "Seattle stable-ID migration could not match an existing "
+                "resource by source_record_id or source_hash. "
+                "No changes were written."
+            )
+
+        matches.append((row, old))
+
+    # ---------- WRITE ----------
+    for row, old in matches:
         if old:
             row_id = urllib.parse.quote(old["id"], safe="")
 
@@ -413,6 +438,7 @@ def write_resources(
             )
 
             updated += 1
+
         else:
             supabase_request(
                 "resources",
