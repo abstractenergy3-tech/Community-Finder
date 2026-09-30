@@ -231,7 +231,7 @@ def normalize_row(
         part for part in (address, city, state, zip_code) if part
     ) or None
     
-        # This first adapter is intentionally Seattle-only.
+    # This first adapter is intentionally Seattle-only.
     # Some source rows do not populate the city field reliably,
     # so also verify that the address explicitly identifies Seattle.
     city_is_seattle = bool(
@@ -293,6 +293,7 @@ def normalize_row(
 
     return {
         "city_id": SEATTLE_CITY_ID,
+        "source_record_id": row.get(":id"),
         "title": title,
         "description": description,
         "category": "Food Assistance",
@@ -315,33 +316,94 @@ def normalize_row(
     }
 
 
-def existing_source_rows(source_url: str) -> dict[str, dict[str, Any]]:
+def existing_source_rows(
+    source_url: str,
+) -> dict[str, dict[str, dict[str, Any]]]:
     params = urllib.parse.urlencode(
         {
             "source_url": f"eq.{source_url}",
-            "select": "id,source_hash",
+            "select": "id,source_hash,source_record_id",
             "limit": "10000",
         }
     )
+
     rows = supabase_request("resources", f"?{params}")
+
+    by_record_id: dict[str, dict[str, Any]] = {}
+    by_hash: dict[str, dict[str, Any]] = {}
+
+    for row in rows:
+        source_record_id = row.get("source_record_id")
+        source_hash = row.get("source_hash")
+
+        if source_record_id:
+            if source_record_id in by_record_id:
+                raise RuntimeError(
+                    "Duplicate source_record_id already exists in "
+                    f"resources: {source_record_id}"
+                )
+            by_record_id[source_record_id] = row
+
+        if source_hash:
+            if source_hash in by_hash:
+                raise RuntimeError(
+                    "Duplicate source_hash already exists in "
+                    f"resources: {source_hash}"
+                )
+            by_hash[source_hash] = row
+
     return {
-        row["source_hash"]: row
-        for row in rows
-        if row.get("source_hash")
+        "by_record_id": by_record_id,
+        "by_hash": by_hash,
     }
 
 
 def write_resources(
     rows: list[dict[str, Any]],
-    existing: dict[str, dict[str, Any]],
+    existing: dict[str, dict[str, dict[str, Any]]],
 ) -> tuple[int, int]:
     inserted = 0
     updated = 0
 
+    existing_by_record_id = existing["by_record_id"]
+    existing_by_hash = existing["by_hash"]
+
+    seen_record_ids: set[str] = set()
+
     for row in rows:
-        old = existing.get(row["source_hash"])
+        source_record_id = row.get("source_record_id")
+
+        if not source_record_id:
+            raise RuntimeError(
+                "Seattle row is missing source_record_id; "
+                "refusing to write."
+            )
+
+        if source_record_id in seen_record_ids:
+            raise RuntimeError(
+                "Duplicate source_record_id in Seattle harvest: "
+                f"{source_record_id}"
+            )
+
+        seen_record_ids.add(source_record_id)
+
+        old = existing_by_record_id.get(source_record_id)
+
+        # One-time migration path:
+        # older Seattle rows may not have source_record_id yet.
+        if old is None:
+            old = existing_by_hash.get(row["source_hash"])
+
+            if old is not None and old.get("source_record_id"):
+                raise RuntimeError(
+                    "Source hash matched a different record that already "
+                    "has a source_record_id: "
+                    f"{source_record_id}"
+                )
+
         if old:
             row_id = urllib.parse.quote(old["id"], safe="")
+
             supabase_request(
                 "resources",
                 f"?id=eq.{row_id}",
@@ -349,6 +411,7 @@ def write_resources(
                 payload=row,
                 prefer="return=minimal",
             )
+
             updated += 1
         else:
             supabase_request(
@@ -358,6 +421,7 @@ def write_resources(
                 payload=row,
                 prefer="return=minimal",
             )
+
             inserted += 1
 
     return inserted, updated
