@@ -5,6 +5,7 @@ This test does NOT connect to Supabase and does NOT modify any data.
 """
 
 from harvester_core import (
+    HarvestError,
     canonical_json,
     extract_rows,
     normalize_record,
@@ -50,6 +51,7 @@ def main():
     # Test resource normalization.
     normalized = normalize_record(
         row={
+            "source_id": "example-food-bank-001",
             "name": "Example Food Bank",
             "description": "Food assistance for the community.",
             "address": "123 Example St, Seattle, WA",
@@ -63,6 +65,7 @@ def main():
         city_id="b47e66a8-465b-49a9-bc81-3d6e48a022fd",
         category="Food Assistance",
         title_fields=("name",),
+        source_record_id_fields=("source_id",),
         description_fields=("description",),
         address_fields=("address",),
         phone_fields=("phone",),
@@ -72,6 +75,7 @@ def main():
     )
 
     assert normalized["title"] == "Example Food Bank"
+    assert normalized["source_record_id"] == "example-food-bank-001"
     assert normalized["city_id"] == (
         "b47e66a8-465b-49a9-bc81-3d6e48a022fd"
     )
@@ -80,6 +84,23 @@ def main():
     assert normalized["longitude"] == -122.3321
     print("PASS: normalize_record")
 
+        # A stable source ID is mandatory.
+    try:
+        normalize_record(
+            row={"name": "Missing ID Example"},
+            source_url="https://example.org/data.json",
+            publisher="Example Publisher",
+            city_id="b47e66a8-465b-49a9-bc81-3d6e48a022fd",
+            category="Food Assistance",
+            title_fields=("name",),
+        )
+    except HarvestError:
+        print("PASS: missing source_record_id fails closed")
+    else:
+        raise AssertionError(
+            "normalize_record accepted a record without source_record_id"
+        )
+    
     print("")
     print("ALL TESTS PASSED.")
     print("No Supabase writes were performed.")
