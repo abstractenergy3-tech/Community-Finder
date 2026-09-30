@@ -230,7 +230,12 @@ def normalize_row(
     full_address = ", ".join(
         part for part in (address, city, state, zip_code) if part
     ) or None
-
+    
+    # This first adapter is intentionally Seattle-only.
+    # Do not assign surrounding-city records to Seattle.
+    if city and city.strip().lower() != "seattle":
+        return None
+        
     phone = clean(
         first_value(row, ("phone", "phone_number", "contact_phone", "telephone")),
         100,
