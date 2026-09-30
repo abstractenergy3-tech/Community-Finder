@@ -209,6 +209,7 @@ def normalize_record(
     city_id: str,
     category: Optional[str],
     title_fields: tuple[str, ...],
+    source_record_id_fields: tuple[str, ...] = (),
     description_fields: tuple[str, ...] = (),
     address_fields: tuple[str, ...] = (),
     phone_fields: tuple[str, ...] = (),
@@ -232,7 +233,14 @@ def normalize_record(
         raise HarvestError(
             "A source record is missing a usable title."
         )
+        
+  source_record_id = first_value(row, *source_record_id_fields)
 
+    if not source_record_id:
+        raise HarvestError(
+            "A source record is missing a stable source_record_id."
+        )
+    
     latitude = first_value(row, *latitude_fields)
     longitude = first_value(row, *longitude_fields)
 
@@ -252,6 +260,7 @@ def normalize_record(
     return {
         "city_id": city_id,
         "title": title,
+        "source_record_id": source_record_id,
         "description": first_value(row, *description_fields),
         "category": category,
         "eligibility": first_value(row, *eligibility_fields),
@@ -443,13 +452,22 @@ def synchronize_resources(
     """
     Synchronize normalized resources for one approved source.
 
-    Existing rows with the same source hash are left untouched.
-    Existing rows with a changed hash are updated.
-    New rows are inserted.
+    source_record_id identifies the source record.
+    source_hash identifies the current content/version.
 
-    Missing source rows are deliberately NOT deactivated here.
-    A source-specific adapter should only deactivate records when the
-    source's semantics make that safe.
+    Same source_record_id + same hash:
+        unchanged
+
+    Same source_record_id + changed hash:
+        update existing resource
+
+    New source_record_id:
+        insert new resource
+
+    Missing source_record_id:
+        fail closed
+
+    Missing source rows are deliberately NOT deactivated.
     """
     resources = list(resources)
 
@@ -457,6 +475,26 @@ def synchronize_resources(
         raise HarvestError(
             "Refusing to synchronize zero normalized resources."
         )
+
+    # Every normalized resource must have a stable source identity.
+    seen_ids: set[str] = set()
+
+    for resource in resources:
+        source_record_id = resource.get("source_record_id")
+
+        if not source_record_id:
+            raise HarvestError(
+                "Refusing to synchronize a resource without "
+                "source_record_id."
+            )
+
+        if source_record_id in seen_ids:
+            raise HarvestError(
+                "Duplicate source_record_id in current harvest: "
+                f"{source_record_id}"
+            )
+
+        seen_ids.add(source_record_id)
 
     endpoint = f"{supabase_url.rstrip('/')}/rest/v1/resources"
 
@@ -466,17 +504,28 @@ def synchronize_resources(
         service_role_key=service_role_key,
         params={
             "source_url": f"eq.{source_url}",
-            "select": "id,source_hash",
+            "select": "id,source_hash,source_record_id",
         },
     )
 
     existing_rows = response.json()
 
-    by_hash = {
-        row["source_hash"]: row["id"]
-        for row in existing_rows
-        if row.get("source_hash")
-    }
+    existing_by_id: dict[str, dict[str, Any]] = {}
+
+    for row in existing_rows:
+        source_record_id = row.get("source_record_id")
+
+        if not source_record_id:
+            # Legacy rows created before stable source identity.
+            continue
+
+        if source_record_id in existing_by_id:
+            raise HarvestError(
+                "Duplicate source_record_id already exists in "
+                f"resources: {source_record_id}"
+            )
+
+        existing_by_id[source_record_id] = row
 
     stats = {
         "received": len(resources),
@@ -486,30 +535,23 @@ def synchronize_resources(
     }
 
     for resource in resources:
-        current_hash = resource.get("source_hash")
+        source_record_id = resource["source_record_id"]
+        existing = existing_by_id.get(source_record_id)
 
-        if current_hash and current_hash in by_hash:
-            stats["unchanged"] += 1
+        if existing:
+            if existing.get("source_hash") == resource.get("source_hash"):
+                stats["unchanged"] += 1
 
-            if on_resource:
-                on_resource(resource)
+                if on_resource:
+                    on_resource(resource)
 
-            continue
+                continue
 
-        resource_id = None
-
-        if current_hash:
-            for row in existing_rows:
-                if row.get("source_hash") == current_hash:
-                    resource_id = row.get("id")
-                    break
-
-        if resource_id:
             upsert_resource(
                 supabase_url=supabase_url,
                 service_role_key=service_role_key,
                 resource=resource,
-                existing_id=resource_id,
+                existing_id=existing["id"],
             )
 
             stats["updated"] += 1
