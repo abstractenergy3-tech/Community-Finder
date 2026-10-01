@@ -735,6 +735,28 @@ def evaluate(
         ),
     )
 
+def canonical_candidate_key(url: str) -> str:
+    """Return a stable identity for known Socrata dataset URL forms."""
+
+    parsed = urllib.parse.urlparse(
+        normalize_url(url)
+    )
+
+    match = re.search(
+        r"/(?:resource|api/v3/views)/([a-z0-9-]+)",
+        parsed.path,
+        re.IGNORECASE,
+    )
+
+    if match:
+        dataset_id = match.group(1).lower()
+
+        host = parsed.netloc.lower()
+
+        if host.endswith(".seattle.gov"):
+            return f"seattle-socrata:{dataset_id}"
+
+    return normalize_url(url)
 
 def main() -> int:
     cfg = load_json(
@@ -779,16 +801,16 @@ def main() -> int:
                 if (
                     candidate
                     and (
-                        candidate.url
+                        canonical_candidate_key(candidate.url)
                         not in candidates
                         or candidate.score
                         > candidates[
-                            candidate.url
+                            canonical_candidate_key(candidate.url)
                         ].score
                     )
                 ):
                     candidates[
-                        candidate.url
+                        canonical_candidate_key(candidate.url)
                     ] = candidate
 
         # New: intentionally configured catalog discovery.
@@ -816,7 +838,7 @@ def main() -> int:
                     continue
 
                 existing = candidates.get(
-                    candidate.url
+                    canonical_candidate_key(candidate.url)
                 )
 
                 if (
@@ -825,7 +847,7 @@ def main() -> int:
                     > existing.score
                 ):
                     candidates[
-                        candidate.url
+                        canonical_candidate_key(candidate.url)
                     ] = candidate
 
     payload = {
