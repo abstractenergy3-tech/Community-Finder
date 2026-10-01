@@ -9,6 +9,15 @@
         "Seattle WA housing assistance open data API",
         "Seattle WA youth programs open data API",
         "Seattle WA senior services open data API"
+      ],
+      "catalogs": [
+        {
+          "name": "City of Seattle Public Data Inventory",
+          "url": "https://data.seattle.gov/resource/phjv-68rp.json?$limit=1000",
+          "landing_url": "https://data.seattle.gov/City-Business/Public-Data-Inventory/phjv-68rp",
+          "publisher": "City of Seattle Open Data Team",
+          "discovery_provider": "seattle_public_data_inventory"
+        }
       ]
     }
   ]
