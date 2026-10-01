@@ -540,7 +540,6 @@ def discover_catalog(
 
     return discovered
 
-
 def evaluate(
     city: dict[str, Any],
     query: str,
@@ -552,33 +551,45 @@ def evaluate(
         str(item.get("url", ""))
     )
 
-if not url:
-    if diagnostics is not None:
-        diagnostics.append(
-            {
-                "name": str(item.get("name") or "Unnamed candidate"),
-                "url": "",
-                "query": query,
-                "discovery_provider": discovery_provider,
-                "reason": "candidate did not contain a usable URL",
-            }
-        )
-    return None
+    if not url:
+        if diagnostics is not None:
+            diagnostics.append(
+                {
+                    "name": str(
+                        item.get("name")
+                        or "Unnamed candidate"
+                    ),
+                    "url": "",
+                    "query": query,
+                    "discovery_provider": discovery_provider,
+                    "reason": (
+                        "candidate did not contain "
+                        "a usable URL"
+                    ),
+                }
+            )
+        return None
 
     status, headers, body = fetch(url)
 
-if status is None:
-    if diagnostics is not None:
-        diagnostics.append(
-            {
-                "name": str(item.get("name") or url),
-                "url": url,
-                "query": query,
-                "discovery_provider": discovery_provider,
-                "reason": "candidate could not be fetched or returned no HTTP status",
-            }
-        )
-    return None
+    if status is None:
+        if diagnostics is not None:
+            diagnostics.append(
+                {
+                    "name": str(
+                        item.get("name")
+                        or url
+                    ),
+                    "url": url,
+                    "query": query,
+                    "discovery_provider": discovery_provider,
+                    "reason": (
+                        "candidate could not be fetched "
+                        "or returned no HTTP status"
+                    ),
+                }
+            )
+        return None
 
     content_type = headers.get(
         "Content-Type"
@@ -626,7 +637,6 @@ if status is None:
 
     if pii == "high":
         score -= 100
-
         reasons.append(
             "high-risk sensitive-data signal: "
             + ", ".join(pii_triggers)
