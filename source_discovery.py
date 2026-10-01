@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Conservative source verification for Community Finder.
+"""Conservative source discovery and verification for Community Finder.
 
-This verifier uses a curated known-source list instead of an external
-web-search API. It verifies technical, reuse, robots, and data-sensitivity
-signals without treating public visibility as permission to scrape.
+This verifier can discover candidates from intentionally configured
+government data catalogs while keeping discovery separate from harvesting.
 
 Important:
 - This is an engineering safety filter, not legal advice.
-- Explicit reuse evidence is still required for automatic approval.
-- High or unclear personal-data risk remains a human-review condition.
+- Public visibility is not treated as permission to scrape.
+- Catalog discovery does not automatically authorize harvesting.
+- Explicit reuse evidence is required for automatic approval.
+- Unknown personal-data status remains a human-review condition.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -23,6 +25,7 @@ import urllib.request
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
+
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = ROOT / "discovery_config.json"
@@ -67,12 +70,23 @@ class Candidate:
 
 def fetch(url: str, max_bytes: int = MAX_BYTES):
     """Fetch a URL with a bounded response size."""
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": UA},
+    )
 
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as response:
+        with urllib.request.urlopen(
+            req,
+            timeout=TIMEOUT,
+        ) as response:
             data = response.read(max_bytes + 1)
-            return response.status, response.headers, data[:max_bytes]
+
+            return (
+                response.status,
+                response.headers,
+                data[:max_bytes],
+            )
 
     except (
         urllib.error.HTTPError,
@@ -92,20 +106,25 @@ def normalize_url(url: str) -> str | None:
         if not parsed.netloc:
             return None
 
-        return parsed._replace(fragment="").geturl().rstrip("/")
+        return parsed._replace(
+            fragment=""
+        ).geturl().rstrip("/")
 
     except Exception:
         return None
 
 
 def robots_ok(url: str) -> bool:
-    """Return whether robots.txt appears not to block this candidate URL.
+    """Check whether robots.txt appears to block this URL.
 
-    An unavailable robots.txt is treated as allowed for this engineering
-    check, but this is NOT legal permission to scrape.
+    Unavailable robots.txt is treated as allowed for this engineering
+    check only. It is NOT legal permission to scrape.
     """
     parsed = urllib.parse.urlparse(url)
-    robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+
+    robots_url = (
+        f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+    )
 
     status, _, data = fetch(
         robots_url,
@@ -115,7 +134,10 @@ def robots_ok(url: str) -> bool:
     if status is None:
         return True
 
-    text = data.decode("utf-8", "ignore")
+    text = data.decode(
+        "utf-8",
+        "ignore",
+    )
 
     current = False
     path = parsed.path or "/"
@@ -149,9 +171,17 @@ def robots_ok(url: str) -> bool:
     return True
 
 
-def _contains_sensitive_pattern(text: str, pattern: str) -> bool:
-    """Case-insensitive regex search helper."""
-    return bool(re.search(pattern, text, flags=re.IGNORECASE))
+def _contains_sensitive_pattern(
+    text: str,
+    pattern: str,
+) -> bool:
+    return bool(
+        re.search(
+            pattern,
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def personal_data_check(
@@ -159,21 +189,12 @@ def personal_data_check(
     body: bytes,
     content_type: str | None,
 ) -> tuple[str, list[str]]:
-    """Classify likely personal-data exposure conservatively.
+    """Detect strong signals of sensitive individual-level data."""
 
-    We do NOT classify a source as high-risk merely because ordinary words
-    such as 'contact', 'address', 'phone', or 'email' appear.
-
-    High-risk requires stronger evidence of sensitive individual-level data,
-    such as explicit medical records, Social Security numbers, passwords,
-    financial account information, or similar sensitive identifiers.
-
-    Generic organization/service contact information remains unknown rather
-    than being treated as high risk.
-
-    Unknown is intentionally NOT auto-approved.
-    """
-    text = body.decode("utf-8", "ignore")[:1_000_000]
+    text = body.decode(
+        "utf-8",
+        "ignore",
+    )[:1_000_000]
 
     triggers: list[str] = []
 
@@ -201,14 +222,15 @@ def personal_data_check(
     ]
 
     for name, pattern in sensitive_patterns:
-        if _contains_sensitive_pattern(text, pattern):
+        if _contains_sensitive_pattern(
+            text,
+            pattern,
+        ):
             triggers.append(name)
 
     if triggers:
         return "high", triggers
 
-    # We deliberately do not infer low risk solely from public accessibility.
-    # If no strong sensitive-data evidence is present, classify as unknown.
     return "unknown", triggers
 
 
@@ -220,7 +242,10 @@ def signals(
     parsed = urllib.parse.urlparse(url)
     host = parsed.netloc.lower()
 
-    text = body.decode("utf-8", "ignore")[:1_000_000].lower()
+    text = body.decode(
+        "utf-8",
+        "ignore",
+    )[:1_000_000].lower()
 
     government = any(
         host.endswith(suffix)
@@ -245,10 +270,10 @@ def signals(
     )
 
     if content_type:
-        lowered_content_type = content_type.lower()
+        lowered = content_type.lower()
 
         machine = machine or any(
-            marker in lowered_content_type
+            marker in lowered
             for marker in (
                 "json",
                 "csv",
@@ -292,12 +317,20 @@ def signals(
     ]
 
     strong_hit = next(
-        (term for term in strong_terms if term in text),
+        (
+            term
+            for term in strong_terms
+            if term in text
+        ),
         None,
     )
 
     medium_hit = next(
-        (term for term in medium_terms if term in text),
+        (
+            term
+            for term in medium_terms
+            if term in text
+        ),
         None,
     )
 
@@ -324,7 +357,9 @@ def load_json(
 ) -> dict[str, Any]:
     try:
         value = json.loads(
-            path.read_text(encoding="utf-8")
+            path.read_text(
+                encoding="utf-8"
+            )
         )
 
         return (
@@ -349,10 +384,170 @@ def source_key(url: str) -> str:
     )
 
 
+def catalog_relevance(
+    item: dict[str, Any],
+    keywords: list[str],
+) -> list[str]:
+    """Return configured relevance keywords found in catalog metadata."""
+
+    fields = [
+        item.get("name", ""),
+        item.get("description", ""),
+        item.get("tags", ""),
+        item.get("category", ""),
+        item.get("owner", ""),
+    ]
+
+    text = " ".join(
+        str(value)
+        for value in fields
+        if value
+    ).lower()
+
+    matches = []
+
+    for keyword in keywords:
+        if keyword.lower() in text:
+            matches.append(keyword)
+
+    return matches
+
+
+def discover_catalog(
+    city: dict[str, Any],
+    catalog: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Discover candidate datasets from a configured catalog.
+
+    The catalog itself must be intentionally configured by the project.
+    Only API endpoints on the catalog's own host are accepted.
+    """
+
+    catalog_url = normalize_url(
+        str(catalog.get("url", ""))
+    )
+
+    if not catalog_url:
+        return []
+
+    status, _, body = fetch(catalog_url)
+
+    if status is None:
+        print(
+            "Catalog unavailable: "
+            + catalog_url
+        )
+        return []
+
+    try:
+        payload = json.loads(
+            body.decode(
+                "utf-8",
+                "ignore",
+            )
+        )
+    except json.JSONDecodeError:
+        print(
+            "Catalog did not return JSON: "
+            + catalog_url
+        )
+        return []
+
+    if not isinstance(payload, list):
+        print(
+            "Catalog JSON was not a row list: "
+            + catalog_url
+        )
+        return []
+
+    keywords = [
+        str(keyword)
+        for keyword in catalog.get(
+            "relevance_keywords",
+            [],
+        )
+    ]
+
+    catalog_host = urllib.parse.urlparse(
+        catalog_url
+    ).netloc.lower()
+
+    discovered = []
+
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+
+        matches = catalog_relevance(
+            item,
+            keywords,
+        )
+
+        if not matches:
+            continue
+
+        api_url = normalize_url(
+            str(
+                item.get(
+                    "api_endpoint",
+                    "",
+                )
+            )
+        )
+
+        if not api_url:
+            continue
+
+        api_host = urllib.parse.urlparse(
+            api_url
+        ).netloc.lower()
+
+        if api_host != catalog_host:
+            continue
+
+        discovered.append(
+            {
+                "name": item.get("name")
+                or api_url,
+                "url": api_url,
+                "landing_url": item.get("url"),
+                "publisher": (
+                    item.get("owner")
+                    or catalog.get("publisher")
+                    or city.get("publisher")
+                ),
+                "reuse_evidence_url": catalog.get(
+                    "reuse_evidence_url"
+                ),
+                "discovery_provider": catalog.get(
+                    "discovery_provider",
+                    "configured_catalog",
+                ),
+                "query": (
+                    "catalog:"
+                    + catalog.get(
+                        "name",
+                        "unknown",
+                    )
+                    + ":"
+                    + ",".join(matches)
+                ),
+            }
+        )
+
+    print(
+        f"Catalog {catalog.get('name', catalog_url)} "
+        f"produced {len(discovered)} relevant candidates."
+    )
+
+    return discovered
+
+
 def evaluate(
     city: dict[str, Any],
     query: str,
     item: dict[str, Any],
+    discovery_provider: str = "known_source",
 ) -> Candidate | None:
     url = normalize_url(
         str(item.get("url", ""))
@@ -366,7 +561,9 @@ def evaluate(
     if status is None:
         return None
 
-    content_type = headers.get("Content-Type")
+    content_type = headers.get(
+        "Content-Type"
+    )
 
     (
         machine,
@@ -411,26 +608,24 @@ def evaluate(
     if pii == "high":
         score -= 100
 
-        if pii_triggers:
-            reasons.append(
-                "high-risk sensitive-data signal: "
-                + ", ".join(pii_triggers)
-            )
-        else:
-            reasons.append(
-                "high-risk sensitive-data signal"
-            )
+        reasons.append(
+            "high-risk sensitive-data signal: "
+            + ", ".join(pii_triggers)
+        )
 
     elif pii == "unknown":
         reasons.append(
-            "no strong sensitive-data pattern confirmed; "
             "personal-data status remains unknown"
         )
 
-    # Reuse evidence is checked separately from the data endpoint.
     evidence_url = (
         normalize_url(
-            str(item.get("reuse_evidence_url", ""))
+            str(
+                item.get(
+                    "reuse_evidence_url",
+                    "",
+                )
+            )
         )
         if item.get("reuse_evidence_url")
         else None
@@ -455,41 +650,35 @@ def evaluate(
             ) = signals(
                 evidence_url,
                 evidence_body,
-                evidence_headers.get("Content-Type"),
+                evidence_headers.get(
+                    "Content-Type"
+                ),
             )
 
             if terms:
                 score += 40
                 reasons.append(
-                    "explicit reuse/terms signal from "
-                    f"configured evidence: {terms}"
+                    "explicit reuse/terms signal: "
+                    + terms
                 )
             else:
                 reasons.append(
-                    "configured reuse evidence URL did not "
-                    "expose a recognizable reuse/license signal"
+                    "reuse evidence did not expose "
+                    "a recognizable reuse signal"
                 )
-
         else:
             reasons.append(
-                "configured reuse evidence URL could not "
+                "configured reuse evidence could not "
                 "be verified"
             )
 
     else:
         reasons.append(
-            "no explicit reuse evidence URL configured"
+            "no explicit reuse evidence configured"
         )
 
     explicit = bool(terms)
 
-    # Conservative approval rule:
-    # - strong technical signal
-    # - explicit reuse evidence
-    # - robots does not block
-    # - no confirmed high-risk personal data
-    #
-    # Unknown personal-data status does NOT automatically approve.
     decision = (
         "auto_approved"
         if (
@@ -514,7 +703,9 @@ def evaluate(
             or url
         ),
         url=url,
-        landing_url=item.get("landing_url"),
+        landing_url=item.get(
+            "landing_url"
+        ),
         publisher=(
             item.get("publisher")
             or city.get("publisher")
@@ -523,7 +714,7 @@ def evaluate(
             city["city_key"]
         ),
         query=query,
-        discovery_provider="known_source",
+        discovery_provider=discovery_provider,
         content_type=content_type,
         http_status=status,
         robots_allowed=rb,
@@ -563,8 +754,16 @@ def main() -> int:
 
     candidates: dict[str, Candidate] = {}
 
-    for city in cfg.get("cities", []):
-        for query in city.get("queries", []):
+    for city in cfg.get(
+        "cities",
+        [],
+    ):
+
+        # Existing intentionally selected sources.
+        for query in city.get(
+            "queries",
+            [],
+        ):
             for item in known:
                 if query not in item.get(
                     "queries",
@@ -576,17 +775,56 @@ def main() -> int:
                     city,
                     query,
                     item,
+                    "known_source",
                 )
 
                 if (
                     candidate
                     and (
-                        candidate.url not in candidates
+                        candidate.url
+                        not in candidates
                         or candidate.score
                         > candidates[
                             candidate.url
                         ].score
                     )
+                ):
+                    candidates[
+                        candidate.url
+                    ] = candidate
+
+        # New: intentionally configured catalog discovery.
+        for catalog in city.get(
+            "catalogs",
+            [],
+        ):
+            discovered = discover_catalog(
+                city,
+                catalog,
+            )
+
+            for item in discovered:
+                candidate = evaluate(
+                    city,
+                    item["query"],
+                    item,
+                    item.get(
+                        "discovery_provider",
+                        "configured_catalog",
+                    ),
+                )
+
+                if not candidate:
+                    continue
+
+                existing = candidates.get(
+                    candidate.url
+                )
+
+                if (
+                    existing is None
+                    or candidate.score
+                    > existing.score
                 ):
                     candidates[
                         candidate.url
@@ -598,7 +836,9 @@ def main() -> int:
             time.gmtime(),
         ),
         "search_configured": False,
-        "discovery_mode": "known_sources_only",
+        "discovery_mode": (
+            "known_sources_and_configured_catalogs"
+        ),
         "candidates": [
             asdict(candidate)
             for candidate in sorted(
@@ -622,19 +862,26 @@ def main() -> int:
     )
 
     auto = sum(
-        candidate.decision == "auto_approved"
-        for candidate in candidates.values()
+        candidate.decision
+        == "auto_approved"
+        for candidate
+        in candidates.values()
+    )
+
+    review = (
+        len(candidates)
+        - auto
     )
 
     print(
-        f"Verified {len(candidates)} known sources: "
+        f"Verified {len(candidates)} candidates: "
         f"{auto} auto-approved, "
-        f"{len(candidates) - auto} review."
+        f"{review} review."
     )
 
     print(
-        "No external search API is required "
-        "in this version."
+        "Discovery only: no dataset was harvested "
+        "or written to resources."
     )
 
     return 0
@@ -642,4 +889,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
