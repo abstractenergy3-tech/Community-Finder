@@ -231,7 +231,7 @@ def personal_data_check(
     if triggers:
         return "high", triggers
 
-    return "unknown", triggers
+    return "low", triggers
 
 
 def signals(
@@ -394,8 +394,6 @@ def catalog_relevance(
         item.get("name", ""),
         item.get("description", ""),
         item.get("tags", ""),
-        item.get("category", ""),
-        item.get("owner", ""),
     ]
 
     text = " ".join(
@@ -686,7 +684,7 @@ def evaluate(
             and machine
             and explicit
             and rb
-            and pii == "unknown"
+            and pii == "low"
         )
         else "needs_review"
     )
