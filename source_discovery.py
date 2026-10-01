@@ -546,18 +546,39 @@ def evaluate(
     query: str,
     item: dict[str, Any],
     discovery_provider: str = "known_source",
+    diagnostics: list[dict[str, Any]] | None = None,
 ) -> Candidate | None:
     url = normalize_url(
         str(item.get("url", ""))
     )
 
-    if not url:
-        return None
+if not url:
+    if diagnostics is not None:
+        diagnostics.append(
+            {
+                "name": str(item.get("name") or "Unnamed candidate"),
+                "url": "",
+                "query": query,
+                "discovery_provider": discovery_provider,
+                "reason": "candidate did not contain a usable URL",
+            }
+        )
+    return None
 
     status, headers, body = fetch(url)
 
-    if status is None:
-        return None
+if status is None:
+    if diagnostics is not None:
+        diagnostics.append(
+            {
+                "name": str(item.get("name") or url),
+                "url": url,
+                "query": query,
+                "discovery_provider": discovery_provider,
+                "reason": "candidate could not be fetched or returned no HTTP status",
+            }
+        )
+    return None
 
     content_type = headers.get(
         "Content-Type"
@@ -773,7 +794,8 @@ def main() -> int:
     )
 
     candidates: dict[str, Candidate] = {}
-
+    diagnostics: list[dict[str, Any]] = []
+    
     for city in cfg.get(
         "cities",
         [],
@@ -796,6 +818,7 @@ def main() -> int:
                     query,
                     item,
                     "known_source",
+                    diagnostics,
                 )
 
                 if (
@@ -832,6 +855,7 @@ def main() -> int:
                         "discovery_provider",
                         "configured_catalog",
                     ),
+                    diagnostics,
                 )
 
                 if not candidate:
@@ -850,8 +874,8 @@ def main() -> int:
                         canonical_candidate_key(candidate.url)
                     ] = candidate
 
-    payload = {
-        "generated_at": time.strftime(
+payload = {
+    "generated_at": time.strftime(
             "%Y-%m-%dT%H:%M:%SZ",
             time.gmtime(),
         ),
@@ -870,6 +894,7 @@ def main() -> int:
                 ),
             )
         ],
+        "rejected_candidates": diagnostics,
     }
 
     OUT.write_text(
@@ -898,6 +923,11 @@ def main() -> int:
         f"{auto} auto-approved, "
         f"{review} review."
     )
+
+    print(
+    f"Rejected during verification: "
+    f"{len(diagnostics)} candidates."
+)
 
     print(
         "Discovery only: no dataset was harvested "
