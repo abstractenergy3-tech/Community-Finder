@@ -18,30 +18,28 @@
           "publisher": "City of Seattle Open Data Team",
           "discovery_provider": "seattle_public_data_inventory",
           "reuse_evidence_url": "https://data.seattle.gov/stories/s/Terms-of-Use/6ukr-wvup/",
-          "relevance_keywords": [
-            "food assistance",
-            "food bank",
-            "food pantry",
-            "meal",
-            "meals",
-            "housing assistance",
-            "affordable housing",
-            "shelter",
-            "homeless",
-            "youth",
-            "children",
-            "senior",
-            "older adult",
-            "community center",
-            "community services",
-            "human services",
-            "resource directory",
-            "community resource",
-            "events",
-            "recreation",
-            "parks",
-            "neighborhood"
-          ]
+         "relevance_keywords": [
+  "food assistance",
+  "emergency food",
+  "food bank",
+  "food pantry",
+  "meal program",
+  "meals",
+  "housing assistance",
+  "affordable housing",
+  "supportive housing",
+  "homeless services",
+  "human services",
+  "community services",
+  "resource directory",
+  "community resource",
+  "youth programs",
+  "youth services",
+  "senior services",
+  "older adult services",
+  "community center",
+  "recreation programs"
+]
         }
       ]
     }
