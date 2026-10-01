@@ -874,8 +874,8 @@ def main() -> int:
                         canonical_candidate_key(candidate.url)
                     ] = candidate
 
-payload = {
-    "generated_at": time.strftime(
+    payload = {
+        "generated_at": time.strftime(
             "%Y-%m-%dT%H:%M:%SZ",
             time.gmtime(),
         ),
@@ -925,9 +925,9 @@ payload = {
     )
 
     print(
-    f"Rejected during verification: "
-    f"{len(diagnostics)} candidates."
-)
+        f"Rejected during verification: "
+        f"{len(diagnostics)} candidates."
+    )
 
     print(
         "Discovery only: no dataset was harvested "
