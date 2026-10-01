@@ -16,7 +16,32 @@
           "url": "https://data.seattle.gov/resource/phjv-68rp.json?$limit=1000",
           "landing_url": "https://data.seattle.gov/City-Business/Public-Data-Inventory/phjv-68rp",
           "publisher": "City of Seattle Open Data Team",
-          "discovery_provider": "seattle_public_data_inventory"
+          "discovery_provider": "seattle_public_data_inventory",
+          "reuse_evidence_url": "https://data.seattle.gov/stories/s/Terms-of-Use/6ukr-wvup/",
+          "relevance_keywords": [
+            "food assistance",
+            "food bank",
+            "food pantry",
+            "meal",
+            "meals",
+            "housing assistance",
+            "affordable housing",
+            "shelter",
+            "homeless",
+            "youth",
+            "children",
+            "senior",
+            "older adult",
+            "community center",
+            "community services",
+            "human services",
+            "resource directory",
+            "community resource",
+            "events",
+            "recreation",
+            "parks",
+            "neighborhood"
+          ]
         }
       ]
     }
